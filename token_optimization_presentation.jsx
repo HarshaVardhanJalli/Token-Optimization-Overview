@@ -12,6 +12,127 @@ const FBODY = "'Source Sans 3','Segoe UI',sans-serif";
 const FMONO = "'JetBrains Mono','Fira Code',monospace";
 const BR = { copilot:{c:"#6e40c9",n:"GitHub Copilot"}, cursor:{c:"#0891b2",n:"Cursor"}, claude:{c:"#d97706",n:"Claude Code"} };
 
+/* ═══ TOKEN CASCADE COMPONENT ═══ */
+const TOKEN_COLORS = {
+  keyword:{bg:'#EEEDFE',border:'#CECBF6',text:'#3C3489',dbg:'#3C3489',dbd:'#534AB7',dtxt:'#CECBF6'},
+  tag:{bg:'#E6F1FB',border:'#B5D4F4',text:'#0C447C',dbg:'#0C447C',dbd:'#185FA5',dtxt:'#B5D4F4'},
+  string:{bg:'#EAF3DE',border:'#C0DD97',text:'#27500A',dbg:'#27500A',dbd:'#3B6D11',dtxt:'#C0DD97'},
+  punct:{bg:'#F1EFE8',border:'#D3D1C7',text:'#444441',dbg:'#444441',dbd:'#5F5E5A',dtxt:'#D3D1C7'},
+  ident:{bg:'#FAEEDA',border:'#FAC775',text:'#633806',dbg:'#633806',dbd:'#854F0B',dtxt:'#FAC775'},
+  number:{bg:'#FAECE7',border:'#F5C4B3',text:'#712B13',dbg:'#712B13',dbd:'#993C1D',dtxt:'#F5C4B3'},
+  attr:{bg:'#FBEAF0',border:'#F4C0D1',text:'#72243E',dbg:'#72243E',dbd:'#993556',dtxt:'#F4C0D1'},
+  operator:{bg:'#E1F5EE',border:'#9FE1CB',text:'#085041',dbg:'#085041',dbd:'#0F6E56',dtxt:'#9FE1CB'},
+  space:{bg:'transparent',border:'transparent',text:'#888',dbg:'transparent',dbd:'transparent',dtxt:'#888'},
+};
+const CASCADE_EXAMPLES = [
+  { name:'React component', tokens:[
+    {t:'export',c:'keyword'},{t:' ',c:'space'},{t:'default',c:'keyword'},{t:' ',c:'space'},{t:'function',c:'keyword'},{t:' ',c:'space'},{t:'Button',c:'ident'},{t:'(',c:'punct'},{t:'{ ',c:'punct'},{t:'label',c:'ident'},{t:', ',c:'punct'},{t:'onClick',c:'ident'},{t:' }',c:'punct'},{t:')',c:'punct'},{t:' {',c:'punct'},{t:'\n',c:'space'},
+    {t:'  ',c:'space'},{t:'return',c:'keyword'},{t:' (',c:'punct'},{t:'\n',c:'space'},
+    {t:'    ',c:'space'},{t:'<',c:'punct'},{t:'button',c:'tag'},{t:' ',c:'space'},{t:'className',c:'attr'},{t:'=',c:'operator'},{t:'"px-4 py-2"',c:'string'},{t:' ',c:'space'},{t:'onClick',c:'attr'},{t:'=',c:'operator'},{t:'{',c:'punct'},{t:'onClick',c:'ident'},{t:'}',c:'punct'},{t:'>',c:'punct'},{t:'\n',c:'space'},
+    {t:'      ',c:'space'},{t:'{',c:'punct'},{t:'label',c:'ident'},{t:'}',c:'punct'},{t:'\n',c:'space'},
+    {t:'    ',c:'space'},{t:'</',c:'punct'},{t:'button',c:'tag'},{t:'>',c:'punct'},{t:'\n',c:'space'},
+    {t:'  ',c:'space'},{t:')',c:'punct'},{t:';',c:'punct'},{t:'\n',c:'space'},{t:'}',c:'punct'},
+  ]},
+  { name:'HTML', tokens:[
+    {t:'<',c:'punct'},{t:'div',c:'tag'},{t:' ',c:'space'},{t:'class',c:'attr'},{t:'=',c:'operator'},{t:'"container"',c:'string'},{t:'>',c:'punct'},{t:'\n',c:'space'},
+    {t:'  ',c:'space'},{t:'<',c:'punct'},{t:'h1',c:'tag'},{t:'>',c:'punct'},{t:'Hello',c:'string'},{t:' ',c:'space'},{t:'World',c:'string'},{t:'</',c:'punct'},{t:'h1',c:'tag'},{t:'>',c:'punct'},{t:'\n',c:'space'},
+    {t:'  ',c:'space'},{t:'<',c:'punct'},{t:'button',c:'tag'},{t:' ',c:'space'},{t:'onclick',c:'attr'},{t:'=',c:'operator'},{t:'"go()"',c:'string'},{t:'>',c:'punct'},{t:'Click',c:'string'},{t:'</',c:'punct'},{t:'button',c:'tag'},{t:'>',c:'punct'},{t:'\n',c:'space'},
+    {t:'</',c:'punct'},{t:'div',c:'tag'},{t:'>',c:'punct'},
+  ]},
+];
+
+function TokenCascade({t}) {
+  const [exIdx, setExIdx] = useState(0);
+  const [revealed, setRevealed] = useState(-1);
+  const [playing, setPlaying] = useState(false);
+  const timerRef = useRef(null);
+  const dark = t.name==="Midnight galaxy";
+  const toks = CASCADE_EXAMPLES[exIdx].tokens;
+  const visible = toks.filter(tk=>tk.t!=='\n'&&tk.t.trim());
+  const totalChars = toks.reduce((a,tk)=>a+tk.t.length,0);
+  const revealedCount = revealed<0?visible.length:Math.min(revealed+1,visible.length);
+
+  useEffect(()=>{return()=>{if(timerRef.current)clearTimeout(timerRef.current);};},[]);
+
+  const play=()=>{
+    if(timerRef.current)clearTimeout(timerRef.current);
+    setRevealed(0);setPlaying(true);
+    let idx=0;
+    const step=()=>{
+      idx++;
+      if(idx>=visible.length){setPlaying(false);setRevealed(-1);return;}
+      setRevealed(idx);
+      timerRef.current=setTimeout(step,60);
+    };
+    timerRef.current=setTimeout(step,60);
+  };
+
+  const reset=()=>{if(timerRef.current)clearTimeout(timerRef.current);setPlaying(false);setRevealed(-1);};
+  const switchEx=(i)=>{reset();setExIdx(i);};
+
+  let visIdx=0;
+  return (
+    <div className="stagger" style={{"--d":"100ms"}}>
+      <div style={{display:"flex",gap:6,marginBottom:10}}>
+        {CASCADE_EXAMPLES.map((ex,i)=>(
+          <button key={i} onClick={()=>switchEx(i)} style={{padding:"3px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:FBODY,border:`1px solid ${i===exIdx?t.accent:t.borderL}`,background:i===exIdx?(dark?t.surfAlt:t.surfAlt):"transparent",color:i===exIdx?t.accent:t.tm,transition:"all 0.2s"}}>{ex.name}</button>
+        ))}
+        <button onClick={playing?reset:play} style={{marginLeft:"auto",padding:"3px 14px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:FBODY,border:`1px solid ${t.accent}`,background:playing?t.accent+"18":"transparent",color:t.accent,transition:"all 0.2s"}}>{playing?"Stop":"Play cascade"}</button>
+      </div>
+      <div style={{background:dark?t.surface:t.surfAlt,borderRadius:10,padding:"12px 14px",border:`1px solid ${t.borderL}`,minHeight:90}}>
+        <div style={{display:"flex",flexWrap:"wrap",gap:"3px",lineHeight:1.1}}>
+          {toks.map((tok,i)=>{
+            if(tok.t==='\n') return <div key={i} style={{width:"100%",height:0}}/>;
+            const col=TOKEN_COLORS[tok.c];
+            const isVis=tok.t.trim()!=='';
+            const curVisIdx=isVis?visIdx++:-1;
+            const isRevealed=revealed<0||curVisIdx<=revealed;
+            const isActive=revealed>=0&&curVisIdx===revealed;
+            const bg=dark?col.dbg:col.bg;
+            const bd=dark?col.dbd:col.border;
+            const tx=dark?col.dtxt:col.text;
+            return (
+              <span key={i} style={{
+                fontFamily:FMONO,fontSize:12,padding:isVis?"3px 2px":"3px 0",borderRadius:3,
+                whiteSpace:"pre",position:"relative",cursor:"default",
+                background:isVis?bg:"transparent",color:tx,
+                border:isVis?`1px solid ${bd}`:"none",
+                opacity:isRevealed?1:0.08,
+                transform:isActive?"translateY(-3px) scale(1.08)":"translateY(0) scale(1)",
+                transition:"all 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+              }}>
+                {tok.t}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:10}}>
+        <div style={{background:dark?t.surface:t.surfAlt,borderRadius:8,padding:"8px 12px",textAlign:"center",border:`1px solid ${t.borderL}`}}>
+          <div style={{fontSize:20,fontWeight:700,fontFamily:FMONO,color:t.accent}}>{revealedCount}</div>
+          <div style={{fontSize:11,color:t.tm,fontFamily:FBODY}}>tokens</div>
+        </div>
+        <div style={{background:dark?t.surface:t.surfAlt,borderRadius:8,padding:"8px 12px",textAlign:"center",border:`1px solid ${t.borderL}`}}>
+          <div style={{fontSize:20,fontWeight:700,fontFamily:FMONO,color:t.tp}}>{totalChars}</div>
+          <div style={{fontSize:11,color:t.tm,fontFamily:FBODY}}>characters</div>
+        </div>
+        <div style={{background:dark?t.surface:t.surfAlt,borderRadius:8,padding:"8px 12px",textAlign:"center",border:`1px solid ${t.borderL}`}}>
+          <div style={{fontSize:20,fontWeight:700,fontFamily:FMONO,color:t.accentAlt}}>{visible.length>0?(totalChars/visible.length).toFixed(1):"0"}</div>
+          <div style={{fontSize:11,color:t.tm,fontFamily:FBODY}}>chars/token</div>
+        </div>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:10,marginTop:8}}>
+        {Object.entries(TOKEN_COLORS).filter(([k])=>k!=='space'&&toks.some(tk=>tk.c===k&&tk.t.trim())).map(([k,col])=>(
+          <span key={k} style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:t.tm,fontFamily:FBODY}}>
+            <span style={{width:8,height:8,borderRadius:2,background:dark?col.dbg:col.bg,border:`1px solid ${dark?col.dbd:col.border}`}}/>
+            {k}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ═══ ANIMATED BACKGROUND — persistent across all slides ═══ */
 function AnimBg({ t }) {
   const particles = useMemo(() => Array.from({length:24},(_,i)=>({
@@ -114,6 +235,13 @@ Your instructions file  → 300–2000 tokens  ← EVERY request`}</Code>
         <Card t={t} delay={400}><Counter end={6} suffix="×" dur={800} t={t} sub="Output costs more"/></Card>
       </div>
       <Callout t={t} delay={500}>Output tokens cost <B t={t}>3–6× more</B>. Shorter responses = real savings.</Callout>
+    </SL>
+  )},
+
+  {id:"cascade",section:"tokens",content:()=>(
+    <SL tag="LIVE DEMO" title="Token Cascade — See It Happen" sub="Watch real code get sliced into tokens. Press Play." t={t}>
+      <TokenCascade t={t}/>
+      <Callout icon="⚡" t={t} delay={300}>Each colored chip is one token. The AI pays for <B t={t}>every single one</B> — on every request. Your instructions file? That's 300+ of these, sent every time.</Callout>
     </SL>
   )},
 
